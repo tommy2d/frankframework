@@ -44,19 +44,26 @@ public class ClassNameRewriter extends FullXmlFilter {
 	private final ConfigurationWarnings configWarning;
 	private final boolean rewriteLegacyClassNames;
 	private final ClassNameAliases aliases;
+	private final ClassNameOverrides overrides;
 
 	public ClassNameRewriter(ContentHandler handler, ApplicationContext applicationContext) {
-		this(handler, applicationContext, true, ClassNameAliases.getInstance());
+		this(handler, applicationContext, true, ClassNameAliases.getInstance(), ClassNameOverrides.getInstance());
+	}
+
+	public ClassNameRewriter(ContentHandler handler, ApplicationContext applicationContext, boolean rewriteLegacyClassNames, ClassNameAliases aliases) {
+		this(handler, applicationContext, rewriteLegacyClassNames, aliases, ClassNameOverrides.none());
 	}
 
 	/**
 	 * @param rewriteLegacyClassNames whether to rewrite {@value #LEGACY_PACKAGE_NAME} class names and the old implicit class names
 	 * @param aliases the class name aliases to apply, see {@link ClassNameAliases}
+	 * @param overrides the class name overrides to apply, see {@link ClassNameOverrides}
 	 */
-	public ClassNameRewriter(ContentHandler handler, ApplicationContext applicationContext, boolean rewriteLegacyClassNames, ClassNameAliases aliases) {
+	public ClassNameRewriter(ContentHandler handler, ApplicationContext applicationContext, boolean rewriteLegacyClassNames, ClassNameAliases aliases, ClassNameOverrides overrides) {
 		super(handler);
 		this.rewriteLegacyClassNames = rewriteLegacyClassNames;
 		this.aliases = aliases;
+		this.overrides = overrides;
 
 		if (applicationContext != null && applicationContext.containsBean("configurationWarnings")) {
 			configWarning = applicationContext.getBean("configurationWarnings", ConfigurationWarnings.class);
@@ -75,7 +82,9 @@ public class ClassNameRewriter extends FullXmlFilter {
 			if (rewriteLegacyClassNames && (className.startsWith(LEGACY_PACKAGE_NAME) || OLD_IMPLICIT_CLASSNAMES.contains(className))) {
 				rewritten = rewriteClassName(className);
 			}
+			String beforeAlias = rewritten;
 			rewritten = applyAlias(rewritten);
+			rewritten = applyOverride(beforeAlias, rewritten);
 			if (!rewritten.equals(className)) {
 				writableAttributes.setValue(CLASS_NAME_ATTRIBUTE, rewritten);
 			}
@@ -110,6 +119,30 @@ public class ClassNameRewriter extends FullXmlFilter {
 		}
 		addDeprecationWarning("[%s] has been renamed to [%s]. Please change the className attribute.".formatted(className, newClassName));
 		return newClassName;
+	}
+
+	/**
+	 * Replaces a class a configuration names with the one a deployment wants built instead. Nothing has been
+	 * renamed, so no deprecation warning is added: the configuration is correct and its author has nothing to
+	 * change. An override may be keyed on the name the configuration uses or on the name it is aliased to, so
+	 * that an upstream rename cannot silently stop an override from firing.
+	 */
+	private String applyOverride(final String beforeAlias, final String afterAlias) {
+		String overridden = overrides.target(beforeAlias)
+				.or(() -> overrides.target(afterAlias))
+				.orElse(null);
+		if (overridden == null) {
+			return afterAlias;
+		}
+		if (!canLoadClass(overridden)) {
+			// Logged rather than added to the configuration warnings: the configuration is not at fault, the
+			// deployment that shipped the override is, and it is the deployment that reads the log.
+			log.error("class name override for [{}] points at [{}], which cannot be loaded. Building [{}] instead, see {}",
+					afterAlias, overridden, afterAlias, ClassNameOverrides.RESOURCE);
+			return afterAlias;
+		}
+		log.debug("building [{}] instead of [{}], see {}", overridden, afterAlias, ClassNameOverrides.RESOURCE);
+		return overridden;
 	}
 
 	private void addDeprecationWarning(String message) {

@@ -47,6 +47,7 @@ import org.frankframework.configuration.ConfigurationException;
 import org.frankframework.configuration.ConfigurationWarnings;
 import org.frankframework.configuration.SuppressKeys;
 import org.frankframework.configuration.filters.ClassNameAliases;
+import org.frankframework.configuration.filters.ClassNameOverrides;
 import org.frankframework.configuration.filters.ClassNameRewriter;
 import org.frankframework.configuration.filters.ElementRoleFilter;
 import org.frankframework.configuration.filters.IncludeFilter;
@@ -102,6 +103,7 @@ import org.frankframework.xml.XmlWriter;
 @Log4j2
 public class ConfigurationDigester implements ConfigurationAware {
 	public static final String MIGRATION_REWRITE_LEGACY_CLASS_NAMES_KEY = "migration.rewriteLegacyClassNames";
+	public static final String CLASS_NAME_OVERRIDES_ENABLED_KEY = "classNameOverrides.enabled";
 	private static final Logger CONFIGURATION_LOG = LogUtil.getLogger("CONFIG");
 
 	private @Setter Configuration configuration;
@@ -207,8 +209,11 @@ public class ConfigurationDigester implements ConfigurationAware {
 
 		boolean rewriteLegacyClassNames = properties.getBoolean(MIGRATION_REWRITE_LEGACY_CLASS_NAMES_KEY, true);
 		ClassNameAliases classNameAliases = ClassNameAliases.getInstance();
-		if (rewriteLegacyClassNames || !classNameAliases.isEmpty()) {
-			handler = new ClassNameRewriter(handler, applicationContext, rewriteLegacyClassNames, classNameAliases);
+		ClassNameOverrides classNameOverrides = properties.getBoolean(CLASS_NAME_OVERRIDES_ENABLED_KEY, true)
+				? ClassNameOverrides.getInstance()
+				: ClassNameOverrides.none();
+		if (rewriteLegacyClassNames || !classNameAliases.isEmpty() || !classNameOverrides.isEmpty()) {
+			handler = new ClassNameRewriter(handler, applicationContext, rewriteLegacyClassNames, classNameAliases, classNameOverrides);
 		}
 
 		XmlWriter originalConfigWriter = new XmlWriter();
