@@ -15,19 +15,11 @@
 */
 package org.frankframework.configuration.filters;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
 import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import org.jspecify.annotations.NonNull;
-
-import lombok.extern.log4j.Log4j2;
 
 /**
  * Class name aliases that libraries and extensions ship with their jar, so they can rename or move a class
@@ -40,7 +32,6 @@ import lombok.extern.log4j.Log4j2;
  * </p>
  * The {@link ClassNameRewriter} applies them while a configuration is digested.
  */
-@Log4j2
 public final class ClassNameAliases {
 
 	public static final String RESOURCE = "META-INF/frankframework/class-name-aliases.properties";
@@ -58,33 +49,7 @@ public final class ClassNameAliases {
 
 	/** Reads and merges every {@value #RESOURCE} the given class loader can see. */
 	public static ClassNameAliases load(@NonNull ClassLoader classLoader) {
-		Map<String, String> merged = new HashMap<>();
-		Map<String, URL> origin = new HashMap<>();
-		try {
-			Enumeration<URL> resources = classLoader.getResources(RESOURCE);
-			while (resources.hasMoreElements()) {
-				URL url = resources.nextElement();
-				Properties properties = new Properties();
-				try (InputStream in = url.openStream()) {
-					properties.load(in);
-				}
-				for (String oldName : properties.stringPropertyNames()) {
-					String newName = properties.getProperty(oldName).trim();
-					String known = merged.get(oldName);
-					if (known == null) {
-						merged.put(oldName, newName);
-						origin.put(oldName, url);
-					} else if (!known.equals(newName)) {
-						log.warn("class name alias [{}] maps to [{}] in [{}] and to [{}] in [{}]; using [{}]",
-								oldName, known, origin.get(oldName), newName, url, known);
-					}
-				}
-			}
-		} catch (IOException e) {
-			log.warn("unable to read class name aliases [{}]", RESOURCE, e);
-		}
-		log.debug("loaded {} class name alias(es)", merged.size());
-		return new ClassNameAliases(merged);
+		return new ClassNameAliases(ClassNameMappings.load(classLoader, RESOURCE, "class name alias"));
 	}
 
 	/** The class name an old name has been renamed to, if any. */
