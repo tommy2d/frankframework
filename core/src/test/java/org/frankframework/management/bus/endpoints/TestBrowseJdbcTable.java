@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.URL;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.Message;
@@ -20,16 +21,26 @@ import org.frankframework.stream.UrlMessage;
 import org.frankframework.testutil.MatchUtils;
 import org.frankframework.testutil.SpringRootInitializer;
 import org.frankframework.testutil.TestFileUtils;
+import org.frankframework.util.AppConstants;
 
 @SpringJUnitConfig(initializers = {SpringRootInitializer.class})
 @WithMockUser(roles = { "IbisTester" })
 public class TestBrowseJdbcTable extends BusTestBase {
+	private static final String PERMISSION_RULES_KEY = "browseJdbcTable.permission.rules";
+
 	private org.frankframework.stream.Message inputXmlMessage;
+	private String originalPermissionRules;
 
 	@BeforeEach
 	public void setup() {
 		URL url = TestFileUtils.getTestFileURL("/Management/BrowseJdbcTable/request.xml");
 		inputXmlMessage = new UrlMessage(url);
+		originalPermissionRules = AppConstants.getInstance().getProperty(PERMISSION_RULES_KEY);
+	}
+
+	@AfterEach
+	public void restorePermissionRules() {
+		AppConstants.getInstance().setProperty(PERMISSION_RULES_KEY, originalPermissionRules);
 	}
 
 	@Test
@@ -115,5 +126,48 @@ public class TestBrowseJdbcTable extends BusTestBase {
 		Exception e = assertThrows(Exception.class, () -> callSyncGateway(request));
 		BusException be = assertInstanceOf(BusException.class, e.getCause());
 		assertEquals("Difference between Rownum max and Rownum min must be less than hundred", be.getMessage());
+	}
+
+	@Test
+	public void noTableIsBrowsableWithoutPermissionRules() {
+		AppConstants.getInstance().setProperty(PERMISSION_RULES_KEY, ""); // the shipped default
+		mockDirectQuerySenderResult("BrowseTable QuerySender", inputXmlMessage);
+
+		MessageBuilder<String> request = createRequestMessage("NONE", BusTopic.JDBC, BusAction.FIND);
+		request.setHeader("table", "testTable");
+
+		Exception e = assertThrows(Exception.class, () -> callSyncGateway(request));
+		BusException be = assertInstanceOf(BusException.class, e.getCause());
+		assertEquals("Access to table [testTable] not allowed", be.getMessage());
+	}
+
+	@Test
+	public void onlyATableNamedInTheRulesIsBrowsable() throws Exception {
+		AppConstants.getInstance().setProperty(PERMISSION_RULES_KEY, "IBISSTORE IbisTester allow");
+		mockDirectQuerySenderResult("BrowseTable QuerySender", inputXmlMessage);
+
+		MessageBuilder<String> allowed = createRequestMessage("NONE", BusTopic.JDBC, BusAction.FIND);
+		allowed.setHeader("table", "IBISSTORE");
+		Message<?> response = callSyncGateway(allowed);
+		assertInstanceOf(String.class, response.getPayload());
+
+		MessageBuilder<String> denied = createRequestMessage("NONE", BusTopic.JDBC, BusAction.FIND);
+		denied.setHeader("table", "testTable");
+		Exception e = assertThrows(Exception.class, () -> callSyncGateway(denied));
+		BusException be = assertInstanceOf(BusException.class, e.getCause());
+		assertEquals("Access to table [testTable] not allowed", be.getMessage());
+	}
+
+	@Test
+	public void aRuleForAnotherRoleDoesNotGrantAccess() {
+		AppConstants.getInstance().setProperty(PERMISSION_RULES_KEY, "testTable IbisObserver allow");
+		mockDirectQuerySenderResult("BrowseTable QuerySender", inputXmlMessage);
+
+		MessageBuilder<String> request = createRequestMessage("NONE", BusTopic.JDBC, BusAction.FIND);
+		request.setHeader("table", "testTable");
+
+		Exception e = assertThrows(Exception.class, () -> callSyncGateway(request));
+		BusException be = assertInstanceOf(BusException.class, e.getCause());
+		assertEquals("Access to table [testTable] not allowed", be.getMessage());
 	}
 }
