@@ -100,7 +100,7 @@ public class JwtSecurityHandler implements ISecurityHandler {
 
 	void validateExactMatchClaims(String exactMatchClaims) throws AuthorizationException {
 		Optional<Map.Entry<String, String>> nonMatchingClaim = splitClaims(exactMatchClaims)
-				.filter(entry -> !entry.getValue().equals(getClaimAsString(entry.getKey())))
+				.filter(entry -> !claimHasValue(entry.getKey(), entry.getValue()))
 				.findFirst();
 
 		if(nonMatchingClaim.isPresent()){
@@ -116,19 +116,27 @@ public class JwtSecurityHandler implements ISecurityHandler {
 		boolean matchesOneOf = allowedValuesByClaim
 				.entrySet()
 				.stream()
-				.anyMatch(entry -> entry.getValue().contains(getClaimAsString(entry.getKey())));
+				.anyMatch(entry -> entry.getValue().stream().anyMatch(allowed -> claimHasValue(entry.getKey(), allowed)));
 
 		if(!matchesOneOf){
 			throw new AuthorizationException("JWT does not match one of: ["+ anyMatchClaims +"]");
 		}
 	}
 
-	private String getClaimAsString(String claim) {
-		Object value = claimsSet.get(claim);
-		if (value == null) {
-			return "";
+	/**
+	 * A claim may hold a single value or an array of them, which {@link #isUserInRole(String)} already accounts for.
+	 * An array claim holds the value when any of its elements equals it, so that a token carrying more than one
+	 * audience can still be matched on one of them.
+	 */
+	private boolean claimHasValue(String claim, String value) {
+		Object claimValue = claimsSet.get(claim);
+		if (claimValue == null) {
+			return false;
 		}
-		return String.valueOf(value);
+		if (claimValue instanceof List<?> claimValues) {
+			return claimValues.stream().anyMatch(element -> value.equals(String.valueOf(element)));
+		}
+		return value.equals(String.valueOf(claimValue));
 	}
 
 	private Stream<Map.Entry<String, String>> splitClaims(@Nullable String claimsToSplit){

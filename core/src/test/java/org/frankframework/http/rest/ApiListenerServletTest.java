@@ -1749,6 +1749,64 @@ public class ApiListenerServletTest {
 	}
 
 	@Test
+	public void testJwtTokenParsingWithRequiredAudience() throws Exception {
+		new ApiListenerBuilder(JWT_VALIDATION_URI, List.of(HttpMethod.GET))
+			.setJwksURL(TestFileUtils.getTestFileURL("/JWT/jwks.json").toString())
+			.setRequiredAudience("Framework")
+			.setAuthenticationMethod(AuthenticationMethods.JWT)
+			.build();
+
+		Response result = service(prepareJWTRequest(null));
+
+		assertEquals(200, result.getStatus());
+		assertEquals(PAYLOAD, session.get("ClaimsSet"));
+		assertNull(result.getErrorMessage());
+	}
+
+	@Test
+	public void testJwtTokenParsingWithRequiredAudienceAmongSeveral() throws Exception {
+		new ApiListenerBuilder(JWT_VALIDATION_URI, List.of(HttpMethod.GET))
+			.setJwksURL(TestFileUtils.getTestFileURL("/JWT/jwks.json").toString())
+			.setRequiredAudience("Framework")
+			.setAuthenticationMethod(AuthenticationMethods.JWT)
+			.build();
+
+		Response result = service(prepareJWTRequest(createJWT(List.of("OtherService", "Framework"))));
+
+		assertEquals(200, result.getStatus());
+		assertNull(result.getErrorMessage());
+	}
+
+	@Test
+	public void testJwtTokenParsingWithIllegalRequiredAudience() throws Exception {
+		new ApiListenerBuilder(JWT_VALIDATION_URI, List.of(HttpMethod.GET))
+			.setJwksURL(TestFileUtils.getTestFileURL("/JWT/jwks.json").toString())
+			.setRequiredAudience("SomeOtherService")
+			.setAuthenticationMethod(AuthenticationMethods.JWT)
+			.build();
+
+		Response result = service(prepareJWTRequest(null));
+
+		assertFalse(handlerInvoked, "Request Handler should not have been invoked, pre-conditions should have failed and stopped request-processing");
+		assertEquals(401, result.getStatus());
+	}
+
+	@Test
+	public void testJwtTokenParsingWithExactMatchOnOneOfSeveralAudiences() throws Exception {
+		new ApiListenerBuilder(JWT_VALIDATION_URI, List.of(HttpMethod.GET))
+			.setJwksURL(TestFileUtils.getTestFileURL("/JWT/jwks.json").toString())
+			.setRequiredIssuer("JWTPipeTest")
+			.setExactMatchClaims("aud=Framework")
+			.setAuthenticationMethod(AuthenticationMethods.JWT)
+			.build();
+
+		Response result = service(prepareJWTRequest(createJWT(List.of("OtherService", "Framework"))));
+
+		assertEquals(200, result.getStatus());
+		assertNull(result.getErrorMessage());
+	}
+
+	@Test
 	public void testJwtTokenParsingWithRequiredClaims() throws Exception {
 		new ApiListenerBuilder(JWT_VALIDATION_URI, List.of(HttpMethod.GET))
 			.setJwksURL(TestFileUtils.getTestFileURL("/JWT/jwks.json").toString())
@@ -2082,12 +2140,16 @@ public class ApiListenerServletTest {
 	}
 
 	private String createJWT() throws Exception {
+		return createJWT(List.of("Framework"));
+	}
+
+	private String createJWT(List<String> audiences) throws Exception {
 		JWSHeader jwsHeader = new JWSHeader.Builder(JWSAlgorithm.RS256).build();
 
 		JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder();
 		builder.issuer("JWTPipeTest");
 		builder.subject("UnitTest");
-		builder.audience("Framework");
+		builder.audience(audiences);
 		builder.jwtID("1234");
 
 		SignedJWT signedJWT = new SignedJWT(jwsHeader, builder.build());
@@ -2347,6 +2409,11 @@ public class ApiListenerServletTest {
 
 		public ApiListenerBuilder setAuthenticationRoles(String roles) {
 			listener.setAuthenticationRoles(roles);
+			return this;
+		}
+
+		public ApiListenerBuilder setRequiredAudience(String requiredAudience) {
+			listener.setRequiredAudience(requiredAudience);
 			return this;
 		}
 

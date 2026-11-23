@@ -57,6 +57,10 @@ public class JwtValidator<C extends SecurityContext> {
 	}
 
 	public void init(String jwksUrl, String requiredIssuer) throws ParseException, IOException, URISyntaxException {
+		init(jwksUrl, requiredIssuer, null);
+	}
+
+	public void init(String jwksUrl, String requiredIssuer, @Nullable String requiredAudience) throws ParseException, IOException, URISyntaxException {
 		JWKSource<C> keySource = getKeySource(new URI(jwksUrl).toURL());
 
 		// The expected JWS algorithm of the access tokens (agreed out-of-band)
@@ -68,12 +72,17 @@ public class JwtValidator<C extends SecurityContext> {
 
 		// Set up a JWT processor to parse the tokens and then check their signature
 		// and validity time window (bounded by the "iat", "nbf" and "exp" claims)
-		if (StringUtils.isNotEmpty(requiredIssuer)) {
-			DefaultJWTClaimsVerifier<C> verifier=new DefaultJWTClaimsVerifier<>() {
+		// The audience is verified by Nimbus, which accepts the claim both as a single value and as an array.
+		String acceptedAudience = StringUtils.isNotEmpty(requiredAudience) ? requiredAudience : null;
+		if (acceptedAudience != null || StringUtils.isNotEmpty(requiredIssuer)) {
+			DefaultJWTClaimsVerifier<C> verifier=new DefaultJWTClaimsVerifier<>(acceptedAudience, null, null) {
 
 				@Override
 				public void verify(JWTClaimsSet claimsSet, C context) throws BadJWTException {
 					super.verify(claimsSet, context);
+					if (StringUtils.isEmpty(requiredIssuer)) {
+						return;
+					}
 					String issuer=claimsSet.getIssuer();
 					if (!requiredIssuer.equals(issuer)) {
 						throw new BadJWTException("illegal issuer ["+issuer+"], must be ["+requiredIssuer+"]");
