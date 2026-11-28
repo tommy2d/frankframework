@@ -1,0 +1,102 @@
+<Configuration name="RoleProtected">
+	<Adapter name="basic-hello-world">
+		<Receiver name="basic-hello-world-http">
+			<ApiListener allowAllParams="false" uriPattern="basic/hello-world" method="GET" produces="JSON"
+				authenticationMethod="AUTHROLE" authenticationRoles="HelloReader"/>
+		</Receiver>
+		<Receiver name="alias-basic-hello-world-http">
+			<ApiListener allowAllParams="false" uriPattern="secret/hello-world" method="GET" produces="JSON"
+				authenticationMethod="AUTHROLE" authenticationRoles="HelloReader"/>
+		</Receiver>
+		<Pipeline>
+			<Exits><Exit name="READY" state="SUCCESS" code="200"/></Exits>
+			<EchoPipe name="Reply" getInputFromFixedValue='{"status":"ok"}'>
+				<Forward name="success" path="READY"/>
+			</EchoPipe>
+		</Pipeline>
+	</Adapter>
+	<Adapter name="yaml-hello-world">
+		<Receiver name="yaml-hello-world-http">
+			<ApiListener allowAllParams="false" uriPattern="yaml/hello-world" method="GET" produces="JSON"
+				authenticationMethod="AUTHROLE" authenticationRoles="HelloReader"/>
+		</Receiver>
+		<Pipeline>
+			<Exits><Exit name="READY" state="SUCCESS" code="200"/></Exits>
+			<EchoPipe name="Reply" getInputFromFixedValue='{"status":"ok"}'>
+				<Forward name="success" path="READY"/>
+			</EchoPipe>
+		</Pipeline>
+	</Adapter>
+	<Adapter name="ad-hello-world">
+		<Receiver name="ad-hello-world-http">
+			<ApiListener allowAllParams="false" uriPattern="ad/hello-world" method="GET" produces="JSON"
+				authenticationMethod="AUTHROLE" authenticationRoles="HelloReader"/>
+		</Receiver>
+		<Pipeline>
+			<Exits><Exit name="READY" state="SUCCESS" code="200"/></Exits>
+			<EchoPipe name="Reply" getInputFromFixedValue='{"status":"ok"}'>
+				<Forward name="success" path="READY"/>
+			</EchoPipe>
+		</Pipeline>
+	</Adapter>
+	<Adapter name="bearer-api-hello-world">
+		<Receiver name="bearer-api-hello-world-http">
+			<ApiListener allowAllParams="false" uriPattern="bearer-api/hello-world" method="GET" produces="JSON"
+				authenticationMethod="AUTHROLE" authenticationRoles="HelloReader"/>
+		</Receiver>
+		<Pipeline>
+			<Exits><Exit name="READY" state="SUCCESS" code="200"/></Exits>
+			<EchoPipe name="Reply" getInputFromFixedValue='{"status":"ok"}'>
+				<Forward name="success" path="READY"/>
+			</EchoPipe>
+		</Pipeline>
+	</Adapter>
+	<Adapter name="oidc-hello-world">
+		<Receiver name="oidc-hello-world-http">
+			<ApiListener allowAllParams="false" uriPattern="oidc/hello-world" method="GET" produces="JSON"
+				authenticationMethod="AUTHROLE" authenticationRoles="HelloReader"/>
+		</Receiver>
+		<Pipeline>
+			<Exits><Exit name="READY" state="SUCCESS" code="200"/></Exits>
+			<EchoPipe name="Reply" getInputFromFixedValue='{"status":"ok"}'>
+				<Forward name="success" path="READY"/>
+			</EchoPipe>
+		</Pipeline>
+	</Adapter>
+	<Adapter name="sealed-hello-world">
+		<Receiver name="sealed-hello-world-http">
+			<ApiListener allowAllParams="false" uriPattern="sealed/hello-world" method="GET" produces="JSON"
+				authenticationMethod="AUTHROLE" authenticationRoles="ClosedRoute"/>
+		</Receiver>
+		<Pipeline>
+			<Exits><Exit name="READY" state="SUCCESS" code="200"/></Exits>
+			<EchoPipe name="Reply" getInputFromFixedValue='{"status":"ok"}'>
+				<Forward name="success" path="READY"/>
+			</EchoPipe>
+		</Pipeline>
+	</Adapter>
+	<Adapter name="container-hello-world">
+		<Receiver name="container-hello-world-http">
+			<ApiListener allowAllParams="false" uriPattern="container/hello-world" method="GET" produces="JSON"
+				authenticationMethod="AUTHROLE" authenticationRoles="HelloReader"/>
+		</Receiver>
+		<Pipeline>
+			<Exits><Exit name="READY" state="SUCCESS" code="200"/></Exits>
+			<EchoPipe name="Reply" getInputFromFixedValue='{"status":"ok"}'>
+				<Forward name="success" path="READY"/>
+			</EchoPipe>
+		</Pipeline>
+	</Adapter>
+	<Adapter name="psk-hello-world">
+		<Receiver name="psk-hello-world-http">
+			<ApiListener allowAllParams="false" uriPattern="psk/hello-world" method="GET" produces="JSON"
+				authenticationMethod="AUTHROLE" authenticationRoles="HelloReader"/>
+		</Receiver>
+		<Pipeline>
+			<Exits><Exit name="READY" state="SUCCESS" code="200"/></Exits>
+			<EchoPipe name="Reply" getInputFromFixedValue='{"status":"ok"}'>
+				<Forward name="success" path="READY"/>
+			</EchoPipe>
+		</Pipeline>
+	</Adapter>
+</Configuration>
