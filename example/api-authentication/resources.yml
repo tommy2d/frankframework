@@ -1,4 +1,0 @@
-jdbc:
-  - name: authreference
-    type: org.h2.jdbcx.JdbcDataSource
-    url: "jdbc:h2:mem:authreference;DB_CLOSE_DELAY=-1"
