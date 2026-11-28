@@ -228,6 +228,44 @@ class JwtSecurityHandlerTest {
 	}
 
 	@Test
+	void exactMatchOnOneOfSeveralClaimValues() throws AuthorizationException {
+		// Given, a claim that holds more than one value, as the audience claim commonly does
+		claims.put("aud", Arrays.asList("OtherService", "Framework"));
+
+		// When
+		JwtSecurityHandler securityHandler = new JwtSecurityHandler(claims, ROLE_CLAIM, PRINCIPAL_CLAIM);
+
+		// Expect, matching one of them is enough
+		securityHandler.validateExactMatchClaims(claim("aud", "Framework"));
+	}
+
+	@Test
+	void exactMatchOnValueMissingFromSeveralClaimValues() {
+		// Given
+		claims.put("aud", Arrays.asList("OtherService", "Framework"));
+
+		// When
+		JwtSecurityHandler securityHandler = new JwtSecurityHandler(claims, ROLE_CLAIM, PRINCIPAL_CLAIM);
+
+		// Expect
+		AuthorizationException e = assertThrows(AuthorizationException.class,
+				() -> securityHandler.validateExactMatchClaims(claim("aud", NO_MATCH)));
+		assertTrue(e.getMessage().contains("aud"), e.getMessage());
+	}
+
+	@Test
+	void anyMatchOnOneOfSeveralClaimValues() throws AuthorizationException {
+		// Given
+		claims.put("aud", Arrays.asList("OtherService", "Framework"));
+
+		// When
+		JwtSecurityHandler securityHandler = new JwtSecurityHandler(claims, ROLE_CLAIM, PRINCIPAL_CLAIM);
+
+		// Expect
+		securityHandler.validateAnyMatchClaims(claims(claim("aud", NO_MATCH), claim("aud", "Framework")));
+	}
+
+	@Test
 	void anyMatchSingleClaim() {
 		// Given
 		claims.put(PRINCIPAL_CLAIM, PRINCIPAL);

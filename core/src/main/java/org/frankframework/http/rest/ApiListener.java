@@ -138,6 +138,7 @@ public class ApiListener extends PushingListenerAdapter implements HasPhysicalDe
 
 	// for jwt validation
 	private @Getter String requiredIssuer = null;
+	private @Getter String requiredAudience = null;
 	private @Getter String jwksUrl = null;
 	private @Getter String jwtHeader = HttpHeaders.AUTHORIZATION;
 	private @Getter String requiredClaims = null;
@@ -289,7 +290,7 @@ public class ApiListener extends PushingListenerAdapter implements HasPhysicalDe
 		if (getAuthenticationMethod() == AuthenticationMethods.JWT) {
 			try {
 				jwtValidator = new JwtValidator<>();
-				jwtValidator.init(getJwksUrl(), getRequiredIssuer());
+				jwtValidator.init(getJwksUrl(), getRequiredIssuer(), getRequiredAudience());
 			} catch (Exception e) {
 				throw new LifecycleException("unable to initialize jwtSecurityHandler", e);
 			}
@@ -587,6 +588,11 @@ public class ApiListener extends PushingListenerAdapter implements HasPhysicalDe
 	/** Issuer to validate JWT */
 	public void setRequiredIssuer(String issuer) {
 		this.requiredIssuer = issuer;
+	}
+
+	/** Audience the JWT must be intended for. Matches a single audience as well as one of several. */
+	public void setRequiredAudience(String audience) {
+		this.requiredAudience = audience;
 	}
 
 	/** Keysource URL to validate JWT */
