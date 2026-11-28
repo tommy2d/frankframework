@@ -68,7 +68,7 @@ import org.frankframework.util.XmlUtils;
 public class BrowseJdbcTable extends BusEndpointBase {
 
 	private static final String DB2XML_XSLT = "xml/xsl/BrowseJdbcTableExecute.xsl";
-	private static final String JDBC_PERMISSION_RULES = AppConstants.getInstance().getProperty("browseJdbcTable.permission.rules");
+	private static final String JDBC_PERMISSION_RULES_KEY = "browseJdbcTable.permission.rules";
 	private static final String COLUMN_NAME = "COLUMN_NAME";
 	private static final String DATA_TYPE = "DATA_TYPE";
 	private static final String COLUMN_SIZE = "COLUMN_SIZE";
@@ -251,11 +251,13 @@ public class BrowseJdbcTable extends BusEndpointBase {
 
 	private boolean readAllowed(@Nullable String tableName) {
 		if (StringUtils.isBlank(tableName)) return false;
-		if (StringUtils.isBlank(JDBC_PERMISSION_RULES)) {
+		// Read the rules per request, so a deployment can change them without restarting the JVM.
+		String permissionRules = AppConstants.getInstance().getProperty(JDBC_PERMISSION_RULES_KEY);
+		if (StringUtils.isBlank(permissionRules)) {
 			log.debug("No JDBC table permissions are defined, default deny");
 			return false;
 		}
-		String[] rulesList = JDBC_PERMISSION_RULES.split("\\|");
+		String[] rulesList = permissionRules.split("\\|");
 		for (String rule: rulesList) {
 			String[] parts = rule.trim().split("\\s+");
 			if (parts.length != 3) {

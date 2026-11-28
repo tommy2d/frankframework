@@ -34,6 +34,7 @@ This applies to the following features:
 * Larva is disabled by default on ACC/PRD environments
 * The IAF_Util configuration should not be used outside of dev environments
 * The (Log) FileViewer permissions are limited to the log directory by default
+* Browsing JDBC tables from the console is denied for every table by default
 
 ## Supported Versions
 

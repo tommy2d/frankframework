@@ -12,6 +12,8 @@ Contains breaking changes per release.
 * The Tomcat Docker image no longer lets the console's log viewer read `/opt/frank`: `FileViewer.permission.rules` in the image now only allows `/usr/local/tomcat/logs`, matching the default described in `SECURITY.md`.
   If you browse other files under `/opt/frank` through the Logging page, set `FileViewer.permission.rules` yourself, for example as a system property.
 * `FileViewer.permission.rules` now matches whole path elements: a rule for `/opt/logs` no longer also matches `/opt/logs-old` or `/opt/logsecrets`. Add a rule per directory if you relied on the old prefix match.
+* `browseJdbcTable.permission.rules` now ships empty, which denies every table, instead of `* * allow`.
+  The Browse JDBC Table page in the console returns `Access to table [...] not allowed` until a deployment names the tables it wants browsable, for example `browseJdbcTable.permission.rules=IBISSTORE IbisTester allow`.
 
 10.3.1
 --------------
