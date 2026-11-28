@@ -16,6 +16,7 @@ import { HasAccessToLinkDirective } from '../../components/has-access-to-link.di
 export class WebservicesComponent implements OnInit {
   protected services: Service[] = [];
   protected apiListeners: ApiListener[] = [];
+  protected hasAuthenticationGroups = false;
   protected wsdls: Wsdl[] = [];
   protected rootURL: string;
   protected readonly faExternalLink = faExternalLink;
@@ -33,6 +34,7 @@ export class WebservicesComponent implements OnInit {
   ngOnInit(): void {
     this.wsService.getWebservices().subscribe((data) => {
       this.apiListeners = data.apiListeners;
+      this.hasAuthenticationGroups = this.apiListeners.some((listener) => !!listener.authenticationGroup);
       this.services = data.services;
       this.wsdls = data.wsdls;
     });

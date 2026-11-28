@@ -47,6 +47,13 @@ public class BearerOnlyAuthenticatorTest extends ServletAuthenticatorTest<Bearer
 	}
 
 	@Test
+	void explicitKeysAndIssuerDoNotRequireDiscoveryAtStartup() {
+		authenticator.setIssuerUri("https://issuer.invalid/realm");
+		authenticator.setJwkSetUri("https://issuer.invalid/realm/keys");
+		assertDoesNotThrow(() -> authenticator.configure(httpSecurity));
+	}
+
+	@Test
 	void testConfigureHttpSecurityWithInvalidAuthoritiesClaimName() {
 		authenticator.setJwkSetUri("http://localhost:8080/realms/myrealm/.well-known/jwks.json");
 

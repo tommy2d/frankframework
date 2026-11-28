@@ -15,12 +15,21 @@
 */
 package org.frankframework.lifecycle.servlets;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.Nullable;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
 import lombok.Setter;
 
@@ -58,12 +67,36 @@ public class InMemoryAuthenticator extends AbstractServletAuthenticator {
 	 */
 	private @Setter String authAlias = null;
 
+	/** Authenticate a single opaque key in this request header using the alias password. */
+	private @Setter @Nullable String apiKeyHeader;
+
 	@Override
 	public SecurityFilterChain configure(HttpSecurity http) {
 		ICredentials credentials = CredentialFactory.getCredentials(authAlias, username, password);
 		UserDetails userDetails = createUserDetails(credentials);
 
 		InMemoryUserDetailsManager udm = new InMemoryUserDetailsManager(userDetails);
+		String headerName = apiKeyHeader;
+		if (headerName != null) {
+			if (!headerName.matches("[A-Za-z0-9-]+")) {
+				throw new IllegalArgumentException("Invalid API key header name");
+			}
+			AuthenticationEntryPoint unauthorized = (request, response, error) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+			var filter = new BasicAuthenticationFilter(new ProviderManager(new DaoAuthenticationProvider(udm)), unauthorized);
+			filter.setAuthenticationConverter(request -> {
+				var values = request.getHeaders(headerName);
+				if (!values.hasMoreElements()) {
+					return null;
+				}
+				String key = values.nextElement();
+				if (values.hasMoreElements() || StringUtils.isBlank(key)) {
+					throw new BadCredentialsException("Expected one API key");
+				}
+				return UsernamePasswordAuthenticationToken.unauthenticated(userDetails.getUsername(), key);
+			});
+			http.addFilter(filter).exceptionHandling(errors -> errors.authenticationEntryPoint(unauthorized));
+			return http.build();
+		}
 		http.userDetailsService(udm);
 
 		http.httpBasic(basic -> basic.realmName("Frank")); // Uses a BasicAuthenticationEntryPoint to force users to log in

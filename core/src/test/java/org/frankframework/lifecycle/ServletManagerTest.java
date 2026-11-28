@@ -43,6 +43,7 @@ import lombok.Setter;
 import org.frankframework.lifecycle.servlets.IAuthenticator;
 import org.frankframework.lifecycle.servlets.SecuritySettings;
 import org.frankframework.lifecycle.servlets.ServletConfiguration;
+import org.frankframework.util.AppConstants;
 import org.frankframework.util.UUIDUtil;
 
 
@@ -113,6 +114,27 @@ public class ServletManagerTest {
 			createAndRegister("name with space", new DummyServletImpl());
 		});
 		assertThat(iae.getMessage(), CoreMatchers.containsString("servlet name may not contain spaces"));
+	}
+
+	@Test
+	public void groupedAuthenticatorRequiresGroups() {
+		String name = UUIDUtil.createNumericUUID();
+		properties.setProperty("servlet." + name + ".authenticator", "GROUPED");
+		var failure = assertThrows(IllegalArgumentException.class, () -> createAndRegister(name, new DummyServletImpl()));
+		assertThat(failure.getMessage(), CoreMatchers.containsString("authenticationGroups is required"));
+	}
+
+	@Test
+	public void groupListRequiresExplicitGroupedMode() {
+		String name = UUIDUtil.createNumericUUID();
+		String key = "servlet." + name + ".authenticationGroups";
+		AppConstants.getInstance().setProperty(key, "public");
+		try {
+			var failure = assertThrows(IllegalArgumentException.class, () -> createAndRegister(name, new DummyServletImpl()));
+			assertThat(failure.getMessage(), CoreMatchers.containsString("requires the GROUPED mode"));
+		} finally {
+			AppConstants.getInstance().remove(key);
+		}
 	}
 
 	@Test

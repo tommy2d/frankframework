@@ -35,6 +35,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtDecoders;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -225,6 +226,11 @@ public abstract class AbstractOAuth2Authenticator extends AbstractServletAuthent
 	}
 
 	private JwtDecoder getJwtDecoder() {
+		if (StringUtils.isNotBlank(jwkSetUri) && StringUtils.isNotBlank(issuerUri)) {
+			NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+			decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuerUri));
+			return decoder;
+		}
 		if (StringUtils.isNotBlank(issuerUri)) {
 			log.debug("Creating JwtDecoder from issuerUri [{}]", issuerUri);
 			return JwtDecoders.fromIssuerLocation(issuerUri);

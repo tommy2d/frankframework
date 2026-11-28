@@ -36,6 +36,7 @@ import jakarta.json.JsonWriterFactory;
 import jakarta.json.stream.JsonGenerator;
 
 import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
 import org.springframework.messaging.Message;
 
@@ -241,9 +242,11 @@ public class WebServices extends BusEndpointBase {
 		private final @Getter String name;
 		private final @Getter List<HttpMethod> methods;
 		private final @Getter String uriPattern;
+		private final @Getter @Nullable String authenticationGroup;
 
 		@SuppressWarnings("removal")
 		public ListenerDAO(RestListener listener) {
+			this.authenticationGroup = null;
 			this.name = listener.getName();
 
 			HttpMethod tempMethod = null;
@@ -258,6 +261,7 @@ public class WebServices extends BusEndpointBase {
 		}
 
 		public ListenerDAO(ApiListener listener) {
+			this.authenticationGroup = listener.getAuthenticationGroup();
 			this.name = listener.getName();
 			this.methods = listener.getAllMethods();
 			this.uriPattern = listener.getUriPattern();

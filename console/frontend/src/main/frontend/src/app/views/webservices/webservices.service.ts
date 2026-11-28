@@ -11,6 +11,7 @@ export type Service = {
 };
 
 export type ApiListener = {
+  authenticationGroup?: string;
   methods: string[];
   uriPattern: string;
   error: string;

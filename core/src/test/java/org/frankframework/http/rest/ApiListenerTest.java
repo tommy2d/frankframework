@@ -53,6 +53,19 @@ public class ApiListenerTest {
 		listener.setUriPattern("dummy");
 	}
 
+	@ParameterizedTest
+	@CsvSource({"/secret/hello-world,secret", "/secret,secret", "/secretary/hello-world,", "/hello-world,", "/{tenant}/results,"})
+	void reportsRegisteredAuthenticationGroup(String pattern, String expectedGroup) {
+		ServletConfiguration servlet = new ServletConfiguration();
+		servlet.setAuthenticationGroups(List.of("secret"));
+		ServletManager manager = mock(ServletManager.class);
+		when(manager.getServlet("ApiListenerServlet")).thenReturn(servlet);
+		listener.setServletManager(manager);
+		listener.setUriPattern(pattern);
+
+		assertEquals(expectedGroup, listener.getAuthenticationGroup());
+	}
+
 	@Test
 	public void testOptionsMethod() {
 		listener.setMethod(HttpMethod.OPTIONS);

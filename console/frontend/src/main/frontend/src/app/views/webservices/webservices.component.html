@@ -64,6 +64,9 @@
                     <th>&nbsp;</th>
                     <th>URI pattern</th>
                     <th>Method(s)</th>
+                    @if (hasAuthenticationGroups) {
+                      <th>Auth group</th>
+                    }
                     <th>&nbsp;</th>
                   </tr>
                 </thead>
@@ -73,6 +76,9 @@
                       <td>{{ index }}</td>
                       <td>{{ apiListener.uriPattern }}</td>
                       <td>{{ apiListener.methods.join(', ') }}</td>
+                      @if (hasAuthenticationGroups) {
+                        <td>{{ apiListener.authenticationGroup }}</td>
+                      }
                       @if (apiListener.error) {
                         <td>{{ apiListener.error }}</td>
                       }

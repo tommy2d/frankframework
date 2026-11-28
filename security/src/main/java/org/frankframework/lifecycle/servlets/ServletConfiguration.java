@@ -61,6 +61,7 @@ public class ServletConfiguration implements InitializingBean, EnvironmentAware 
 	private static final char SLASH = '/';
 	private @Getter String name;
 	private List<String> securityRoles = Collections.emptyList();
+	private @Getter @Setter List<String> authenticationGroups = List.of();
 	private @Getter List<String> urlMapping;
 	private @Getter @Setter int loadOnStartup = -1;
 	private @Getter @Setter boolean enabled = true;

@@ -19,11 +19,14 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.HttpConstraintElement;
 import jakarta.servlet.HttpMethodConstraintElement;
 import jakarta.servlet.ServletContext;
@@ -33,8 +36,11 @@ import jakarta.servlet.ServletRegistration.Dynamic;
 import jakarta.servlet.ServletSecurityElement;
 import jakarta.servlet.annotation.ServletSecurity;
 import jakarta.servlet.annotation.ServletSecurity.TransportGuarantee;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import org.jspecify.annotations.NonNull;
@@ -52,8 +58,10 @@ import org.frankframework.lifecycle.servlets.AbstractServletAuthenticator;
 import org.frankframework.lifecycle.servlets.AuthenticationType;
 import org.frankframework.lifecycle.servlets.IAuthenticator;
 import org.frankframework.lifecycle.servlets.JeeAuthenticator;
+import org.frankframework.lifecycle.servlets.NoOpAuthenticator;
 import org.frankframework.lifecycle.servlets.SecuritySettings;
 import org.frankframework.lifecycle.servlets.ServletConfiguration;
+import org.frankframework.lifecycle.servlets.URLRequestMatcher;
 import org.frankframework.util.AppConstants;
 import org.frankframework.util.ClassUtils;
 import org.frankframework.util.EnumUtils;
@@ -203,9 +211,23 @@ public class ServletManager implements ApplicationContextAware, InitializingBean
 			return;
 		}
 
-		registerServlet(config);
-
+		String prefix = "servlet." + config.getName() + ".";
+		List<String> groups = AppConstants.getInstance().getListProperty(prefix + "authenticationGroups");
 		String authenticatorName = config.getAuthenticatorName();
+		// Preserve existing installations with a named authenticator called GROUPED.
+		if ("GROUPED".equals(authenticatorName) && !authenticators.containsKey(authenticatorName)) {
+			if (groups.isEmpty()) {
+				throw new IllegalArgumentException(prefix + "authenticationGroups is required with authenticator GROUPED");
+			}
+			registerAuthenticationGroups(config, prefix, groups);
+			registerServlet(config);
+			return;
+		}
+
+		if (!groups.isEmpty()) {
+			throw new IllegalArgumentException(prefix + "authenticationGroups requires the GROUPED mode and no named authenticator called GROUPED");
+		}
+		registerServlet(config);
 		if(StringUtils.isNotEmpty(authenticatorName)) {
 			IAuthenticator authenticator = authenticators.get(authenticatorName);
 			if(authenticator == null) {
@@ -213,6 +235,60 @@ public class ServletManager implements ApplicationContextAware, InitializingBean
 			}
 			authenticator.registerServlet(config);
 		}
+	}
+
+	/**
+	 * Register independent Spring Security chains under a single servlet mapping.
+	 * Each group owns one literal path segment. The container still dispatches the
+	 * original path to the same servlet. Container authentication additionally
+	 * requires a matching security-constraint in the application descriptor.
+	 */
+	private void registerAuthenticationGroups(ServletConfiguration servlet, String prefix, List<String> groups) {
+		List<String> mappings = servlet.getUrlMapping();
+		if (mappings.size() != 1 || !mappings.getFirst().endsWith("/*")
+				|| !servlet.getSecurityRoles().isEmpty()) {
+			throw new IllegalArgumentException("Authentication groups require one prefix mapping and no servlet-wide roles");
+		}
+		String base = Strings.CS.removeEnd(mappings.getFirst(), "*");
+		var groupMappings = new HashSet<String>();
+		for (String group : groups) {
+			if (!group.matches("[a-zA-Z0-9_-]+") || !groupMappings.add(base + group + "/*")) {
+				throw new IllegalArgumentException("Invalid or duplicate authentication group: " + group);
+			}
+			String settings = prefix + "group." + group + ".";
+			String name = applicationContext.getEnvironment().getRequiredProperty(settings + "authenticator");
+			IAuthenticator authenticator = authenticators.get(name);
+			List<String> roles = AppConstants.getInstance().getListProperty(settings + "securityRoles");
+			if ("NONE".equals(name) && authenticator instanceof NoOpAuthenticator) {
+				if (!roles.isEmpty()) {
+					throw new IllegalArgumentException(settings + "securityRoles must be empty for a public group");
+				}
+				continue;
+			}
+			if (authenticator == null || authenticator instanceof NoOpAuthenticator) {
+				throw new IllegalArgumentException("Expected a protecting authenticator for group " + group);
+			}
+			if (roles.isEmpty()) {
+				throw new IllegalArgumentException("Missing securityRoles for group " + group);
+			}
+			ServletConfiguration scope = new ServletConfiguration();
+			scope.setUrlMapping(base + group + "/*");
+			scope.setSecurityRoles(roles.toArray(String[]::new));
+			declareRoles(roles);
+			authenticator.registerServlet(scope);
+		}
+		// Use the same path matcher as the authenticators. Scope the guard to this servlet.
+		var knownGroups = new URLRequestMatcher(groupMappings);
+		var guard = getServletContext().addFilter(servlet.getName() + "-authentication-groups", (request, response, chain) -> {
+			if (knownGroups.matches((HttpServletRequest) request)) {
+				chain.doFilter(request, response);
+			} else {
+				((HttpServletResponse) response).setStatus(HttpServletResponse.SC_FORBIDDEN);
+			}
+		});
+		guard.setAsyncSupported(true);
+		guard.addMappingForServletNames(EnumSet.allOf(DispatcherType.class), false, servlet.getName());
+		servlet.setAuthenticationGroups(List.copyOf(groups));
 	}
 
 	private void registerServlet(ServletConfiguration config) {

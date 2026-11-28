@@ -336,6 +336,16 @@ public class ApiListener extends PushingListenerAdapter implements HasPhysicalDe
 		return methods.contains(method);
 	}
 
+	/** The configured servlet authentication group covering this listener's URI pattern. */
+	public @Nullable String getAuthenticationGroup() {
+		if (servletManager == null || StringUtils.isEmpty(getUriPattern())) {
+			return null;
+		}
+		ServletConfiguration servlet = servletManager.getServlet(ApiListenerServlet.class.getSimpleName());
+		String firstSegment = StringUtils.substringBefore(getUriPattern().substring(1), "/");
+		return servlet != null && servlet.getAuthenticationGroups().contains(firstSegment) ? firstSegment : null;
+	}
+
 	/**
 	 * returns the clear pattern, replaces everything between <code>{}</code> to <code>*</code>
 	 *
